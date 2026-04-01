@@ -246,6 +246,26 @@ body {
   background-image: none !important;
 }
 
+@media (max-width: 639px) {
+  .mobile-date-input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+    line-height: 1.2;
+    padding-right: 2.25rem;
+  }
+
+  .mobile-date-input::-webkit-date-and-time-value {
+    text-align: left;
+  }
+
+  .mobile-date-input::-webkit-calendar-picker-indicator {
+    margin: 0;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
