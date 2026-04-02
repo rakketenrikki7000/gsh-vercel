@@ -612,6 +612,7 @@ const SchedulePage = ({ user, isAdmin, playerProfiles = [] }) => {
                 typeof voteReasonsByGame[game.id] === 'string'
                   ? voteReasonsByGame[game.id]
                   : savedUserVoteReason
+              const hasSavedUserVoteReason = Boolean(savedUserVoteReason.trim())
               const isEditing = editingGameId === game.id
               const openVoteDetails = openVoteDetailsByGame[game.id] || ''
               return (
@@ -893,7 +894,7 @@ const SchedulePage = ({ user, isAdmin, playerProfiles = [] }) => {
                       </div>
                     )}
 
-                    {user && !isVotingClosed(game) && (userVote === 'maybe' || userVote === 'no') ? (
+                    {user && !isVotingClosed(game) && (userVote === 'maybe' || userVote === 'no') && !hasSavedUserVoteReason ? (
                       <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3">
                         <label className="flex flex-col gap-2 text-sm text-slate-200/90">
                           {userVote === 'maybe' ? 'Grund für Vielleicht' : 'Grund für Absage'}

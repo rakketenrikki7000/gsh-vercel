@@ -223,8 +223,8 @@ const getDisplayTeamName = ({ team, roundIndex, matchIndex, useLoserDrawLabel })
 const getBracketBaseMatches = (roundCount) => 2 ** (roundCount - 1)
 
 const getBracketUnit = (isAdmin, hasOpenMap) => {
-  if (isAdmin) return 720
-  return hasOpenMap ? 620 : 360
+  if (isAdmin) return 600
+  return hasOpenMap ? 500 : 300
 }
 
 const getBracketHeight = (roundCount, isAdmin, hasOpenMap) =>
@@ -248,6 +248,7 @@ const PokalPage = ({ isAdmin }) => {
   const [resettingMatchId, setResettingMatchId] = useState('')
   const [savingLoserSlot, setSavingLoserSlot] = useState('')
   const [openMapMatchId, setOpenMapMatchId] = useState('')
+  const [mobileRoundIndex, setMobileRoundIndex] = useState(0)
   const mapToggleRefs = useRef({})
   const mapAnchorMatchIdRef = useRef('')
   const mapAnchorTopRef = useRef(0)
@@ -299,12 +300,16 @@ const PokalPage = ({ isAdmin }) => {
     () => buildCupRounds(draftSlots, resultDrafts, savedQuarterfinalLoserSelections),
     [draftSlots, resultDrafts, savedQuarterfinalLoserSelections],
   )
+  const activeMobileRound = cupRounds[mobileRoundIndex] || null
   const hasOpenMap = !isAdmin && Boolean(openMapMatchId)
   const bracketHeight = useMemo(
     () => getBracketHeight(cupRounds.length, isAdmin, hasOpenMap),
     [cupRounds.length, hasOpenMap, isAdmin],
   )
   const firstRoundLosers = useMemo(() => getFirstRoundLosers(draftSlots, savedResults), [draftSlots, savedResults])
+  useEffect(() => {
+    setMobileRoundIndex((prev) => Math.min(prev, Math.max(cupRounds.length - 1, 0)))
+  }, [cupRounds.length])
 
   const hasUnsavedChanges = useMemo(() => {
     if (draftSlots.length !== savedSlots.length) return true
@@ -602,6 +607,10 @@ const PokalPage = ({ isAdmin }) => {
     setOpenMapMatchId((prev) => (prev === matchId ? '' : matchId))
   }
 
+  const handleSelectMobileRound = (roundIndex) => {
+    setMobileRoundIndex(roundIndex)
+  }
+
   useLayoutEffect(() => {
     const anchorMatchId = mapAnchorMatchIdRef.current
     if (!anchorMatchId) return
@@ -731,13 +740,319 @@ const PokalPage = ({ isAdmin }) => {
             Noch kein Turnierbaum vorhanden.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <div className="grid min-w-[1360px] grid-cols-4 gap-10 pb-4 pr-6 xl:min-w-0 xl:grid-cols-4">
+          <>
+            <div className="-mx-4 mb-3 overflow-x-auto px-4 sm:hidden">
+              <div className="inline-flex min-w-full gap-2">
+                {cupRounds.map((round, roundIndex) => (
+                  <button
+                    key={`mobile-round-tab-${round.title}`}
+                    type="button"
+                    onClick={() => handleSelectMobileRound(roundIndex)}
+                    className={`whitespace-nowrap rounded-full border px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
+                      mobileRoundIndex === roundIndex
+                        ? 'border-sky-300/60 bg-sky-300/20 text-sky-100 shadow-[0_0_0_1px_rgba(125,211,252,0.14)]'
+                        : 'border-sky-300/20 bg-sky-300/10 text-sky-100/80'
+                    }`}
+                  >
+                    {round.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {activeMobileRound ? (
+              <div className="mb-4 space-y-3 sm:hidden">
+                {activeMobileRound.matches.map((match, matchIndex) => {
+                  const winner = getMatchWinner(match, resultDrafts)
+                  const savedResult = savedResults[match.id]
+                  const savedHomeScore =
+                    savedResult && savedResult.homeScore !== undefined ? savedResult.homeScore : null
+                  const savedAwayScore =
+                    savedResult && savedResult.awayScore !== undefined ? savedResult.awayScore : null
+                  const savedMeta = savedMatchMeta[match.id] || {}
+                  const draftMeta = matchMetaDrafts[match.id] || { location: '', date: '', time: '' }
+                  const timeParts = getTimeParts(draftMeta.time || '')
+                  const useLoserDrawLabel = showLoserDrawLabel(mobileRoundIndex, matchIndex)
+                  const loserSelectionKey = `${match.id}-away`
+                  const selectedLoser = savedQuarterfinalLoserSelections[loserSelectionKey] || ''
+                  const usedLosers = Object.entries(savedQuarterfinalLoserSelections)
+                    .filter(([key, value]) => key !== loserSelectionKey && value)
+                    .map(([, value]) => value)
+                  const availableLosers = firstRoundLosers.filter(
+                    ({ team }) => !usedLosers.includes(team) || team === selectedLoser,
+                  )
+
+                  return (
+                    <div
+                      key={`mobile-round-match-${match.id}`}
+                      className="rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(20,29,52,0.96),rgba(11,18,36,0.96))] p-4 shadow-[0_16px_42px_rgba(2,8,23,0.33)]"
+                    >
+                      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        {getMatchLabel(mobileRoundIndex, matchIndex)}
+                      </p>
+                      <div className="space-y-3">
+                        <div
+                          className={`rounded-xl border px-3 py-2.5 text-[13px] font-semibold ${
+                            winner && winner === match.home
+                              ? 'border-sky-300/60 bg-sky-400/20 text-sky-50 shadow-[0_0_0_1px_rgba(125,211,252,0.12)]'
+                              : 'border-white/5 bg-white/[0.06] text-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span>
+                              {getDisplayTeamName({
+                                team: match.home,
+                                roundIndex: mobileRoundIndex,
+                                matchIndex,
+                                useLoserDrawLabel,
+                              })}
+                            </span>
+                            {savedHomeScore !== null ? (
+                              <span className="text-[13px] font-semibold text-inherit">{savedHomeScore}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="text-center text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                          vs
+                        </div>
+                        <div
+                          className={`rounded-xl border px-3 py-2.5 text-[13px] font-semibold ${
+                            winner && winner === match.away
+                              ? 'border-sky-300/60 bg-sky-400/20 text-sky-50 shadow-[0_0_0_1px_rgba(125,211,252,0.12)]'
+                              : 'border-white/5 bg-white/[0.06] text-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span>
+                              {getDisplayTeamName({
+                                team: match.away,
+                                roundIndex: mobileRoundIndex,
+                                matchIndex,
+                                useLoserDrawLabel,
+                              })}
+                            </span>
+                            {savedAwayScore !== null ? (
+                              <span className="text-[13px] font-semibold text-inherit">{savedAwayScore}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
+                      {(savedMeta.date || savedMeta.time) ? (
+                        <div className="mt-4">
+                          {!isAdmin ? (
+                            <>
+                              <button
+                                type="button"
+                                ref={(element) => {
+                                  if (element) mapToggleRefs.current[match.id] = element
+                                }}
+                                onClick={() => handleToggleMap(match.id)}
+                                className="block w-full rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-left transition hover:border-sky-300/40 hover:bg-sky-300/10"
+                              >
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                                  Termin
+                                </p>
+                                <p className="mt-2 text-sm font-semibold text-slate-200">
+                                  {[savedMeta.date, savedMeta.time].filter(Boolean).join(' | ')}
+                                </p>
+                              </button>
+
+                              {openMapMatchId === match.id && savedMeta.location ? (
+                                <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-200/90">
+                                  <p className="text-xs uppercase tracking-[0.2em] text-slate-300/70">Adresse</p>
+                                  {(() => {
+                                    const [address, rest] = savedMeta.location.split(' (')
+                                    const detail = rest ? `(${rest}` : ''
+                                    return (
+                                      <div className="mt-2">
+                                        <p className="text-sm font-semibold text-white">{address}</p>
+                                        {detail ? <p className="text-xs text-slate-300/80">{detail}</p> : null}
+                                      </div>
+                                    )
+                                  })()}
+                                  <div className="mt-3 overflow-hidden rounded-lg border border-white/10">
+                                    <iframe
+                                      title={`Karte ${savedMeta.location}`}
+                                      src={`https://maps.google.com/maps?q=${encodeURIComponent(savedMeta.location)}&z=16&output=embed`}
+                                      width="100%"
+                                      height="220"
+                                      allowFullScreen=""
+                                      loading="lazy"
+                                      referrerPolicy="no-referrer-when-downgrade"
+                                      className="border-0"
+                                    />
+                                  </div>
+                                </div>
+                              ) : null}
+                            </>
+                          ) : (
+                            <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                                Termin
+                              </p>
+                              <p className="mt-2 text-sm font-semibold text-slate-200">
+                                {[savedMeta.date, savedMeta.time].filter(Boolean).join(' | ')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+
+                      {isAdmin && mobileRoundIndex === 1 && match.away === LOSER_DRAW_LABEL ? (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                            Verlierer aus Achtelfinale
+                          </p>
+                          <select
+                            value={selectedLoser}
+                            onChange={(event) => handleSaveQuarterfinalLoser(match.id, 'away', event.target.value)}
+                            disabled={savingLoserSlot === loserSelectionKey}
+                            className="w-full rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <option value="">{LOSER_DRAW_LABEL}</option>
+                            {availableLosers.map(({ matchId: loserMatchId, team }) => (
+                              <option key={`${loserMatchId}-${team}`} value={team}>
+                                {team}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
+
+                      {isAdmin && canEnterResult(match) ? (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                            Resultat
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              value={resultDrafts[match.id]?.homeScore ?? ''}
+                              onChange={(event) => updateResultDraft(match.id, 'homeScore', event.target.value)}
+                              className="h-11 w-full rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2 text-center text-sm font-semibold text-white outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-400/40"
+                            />
+                            <span className="text-sm font-semibold text-slate-400">:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={resultDrafts[match.id]?.awayScore ?? ''}
+                              onChange={(event) => updateResultDraft(match.id, 'awayScore', event.target.value)}
+                              className="h-11 w-full rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2 text-center text-sm font-semibold text-white outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-400/40"
+                            />
+                          </div>
+                          <div className="mt-3 flex items-end justify-between gap-3">
+                            <p className="text-[11px] leading-5 text-slate-400">
+                              {savedResult ? 'Resultat gespeichert' : 'Noch kein Resultat gespeichert'}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveResult(match)}
+                              disabled={savingResultId === match.id}
+                              className="inline-flex min-w-[132px] items-center justify-center rounded-full border border-sky-300/60 bg-sky-300 px-4 py-2 text-xs font-semibold text-slate-900 transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {savingResultId === match.id ? 'Speichert...' : 'Resultat speichern'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {isAdmin ? (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 p-4">
+                          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                            Ort, Datum und Uhrzeit
+                          </p>
+                          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <select
+                              value={draftMeta.location || ''}
+                              onChange={(event) => updateMatchMetaDraft(match.id, 'location', event.target.value)}
+                              className="h-11 w-full rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-400/40 sm:col-span-2"
+                            >
+                              <option value="">Ort wählen</option>
+                              {STADIUM_OPTIONS.map((stadium) => (
+                                <option key={stadium} value={stadium}>
+                                  {stadium}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="w-full overflow-hidden rounded-xl">
+                              <input
+                                type="date"
+                                lang="de-DE"
+                                value={toIsoDateValue(draftMeta.date || '')}
+                                onChange={(event) => updateMatchMetaDraft(match.id, 'date', event.target.value)}
+                                className="mobile-date-input h-11 w-full rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-400/40"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <select
+                                value={timeParts.hour}
+                                onChange={(event) => updateMatchTimePart(match.id, 'hour', event.target.value)}
+                                className="h-11 w-full rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-400/40"
+                              >
+                                <option value="">Stunde</option>
+                                {HOUR_OPTIONS.map((hour) => (
+                                  <option key={hour} value={hour}>
+                                    {hour}
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={timeParts.minute}
+                                onChange={(event) => updateMatchTimePart(match.id, 'minute', event.target.value)}
+                                className="h-11 w-full rounded-xl border border-white/10 bg-slate-800/80 px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-400/40"
+                              >
+                                <option value="">Minute</option>
+                                {MINUTE_OPTIONS.map((minute) => (
+                                  <option key={minute} value={minute}>
+                                    {minute}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex items-end justify-between gap-3">
+                            <p className="text-[11px] leading-5 text-slate-400">
+                              {savedMeta.location || savedMeta.date || savedMeta.time ? 'Termin gespeichert' : 'Noch kein Termin gespeichert'}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveMatchMeta(match.id)}
+                              disabled={savingMetaId === match.id}
+                              className="inline-flex min-w-[132px] items-center justify-center rounded-full border border-sky-300/60 bg-sky-300 px-4 py-2 text-xs font-semibold text-slate-900 transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {savingMetaId === match.id ? 'Speichert...' : 'Termin speichern'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {isAdmin ? (
+                        <div className="mt-4 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleResetMatch(match.id)}
+                            disabled={resettingMatchId === match.id}
+                            className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition hover:border-sky-300/60 hover:text-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {resettingMatchId === match.id ? 'Reset...' : 'Reset'}
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : null}
+
+            <div className="hidden overflow-x-auto sm:block">
+              <div className="grid min-w-[1160px] grid-cols-4 gap-6 pb-4 pr-4 xl:min-w-0 xl:grid-cols-4">
               {cupRounds.map((round, roundIndex) => (
-                <div key={round.title} className="relative min-w-[320px] xl:min-w-0">
-                  <div className="mb-5 flex items-center gap-3">
+                <div key={round.title} className="relative min-w-[260px] xl:min-w-0">
+                  <div className={`mb-3 items-center gap-2 ${!isAdmin ? 'hidden sm:flex' : 'flex'}`}>
                     <div className="h-px flex-1 bg-sky-300/20" />
-                    <p className="rounded-full border border-sky-300/20 bg-sky-300/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-sky-100">
+                    <p className="rounded-full border border-sky-300/20 bg-sky-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-100">
                       {round.title}
                     </p>
                     <div className="h-px flex-1 bg-sky-300/20" />
@@ -771,8 +1086,8 @@ const PokalPage = ({ isAdmin }) => {
                             isAdmin,
                             hasOpenMap,
                           )
-                          const xStart = -44
-                          const xJoin = -16
+                          const xStart = -34
+                          const xJoin = -12
                           const xEnd = 0
                           const activeTop = Boolean(previousMatchA && getMatchWinner(previousMatchA, resultDrafts))
                           const activeBottom = Boolean(previousMatchB && getMatchWinner(previousMatchB, resultDrafts))
@@ -800,11 +1115,11 @@ const PokalPage = ({ isAdmin }) => {
                               {activeTop ? (
                                 <>
                                   <div
-                                    className="absolute h-[3px] -translate-y-1/2 rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.95),0_0_26px_rgba(125,211,252,0.55)]"
+                                    className="absolute h-[2px] -translate-y-1/2 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.92),0_0_20px_rgba(125,211,252,0.45)]"
                                     style={{ left: `${xStart}px`, top: `${topY}px`, width: `${xJoin - xStart}px` }}
                                   />
                                   <div
-                                    className="absolute w-[3px] rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.95),0_0_26px_rgba(125,211,252,0.55)]"
+                                    className="absolute w-[2px] rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.92),0_0_20px_rgba(125,211,252,0.45)]"
                                     style={{ left: `${xJoin - 1}px`, top: `${Math.min(topY, midY)}px`, height: `${Math.max(2, Math.abs(midY - topY))}px` }}
                                   />
                                 </>
@@ -813,11 +1128,11 @@ const PokalPage = ({ isAdmin }) => {
                               {activeBottom ? (
                                 <>
                                   <div
-                                    className="absolute h-[3px] -translate-y-1/2 rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.95),0_0_26px_rgba(125,211,252,0.55)]"
+                                    className="absolute h-[2px] -translate-y-1/2 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.92),0_0_20px_rgba(125,211,252,0.45)]"
                                     style={{ left: `${xStart}px`, top: `${bottomY}px`, width: `${xJoin - xStart}px` }}
                                   />
                                   <div
-                                    className="absolute w-[3px] rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.95),0_0_26px_rgba(125,211,252,0.55)]"
+                                    className="absolute w-[2px] rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.92),0_0_20px_rgba(125,211,252,0.45)]"
                                     style={{ left: `${xJoin - 1}px`, top: `${Math.min(midY, bottomY)}px`, height: `${Math.max(2, Math.abs(bottomY - midY))}px` }}
                                   />
                                 </>
@@ -825,7 +1140,7 @@ const PokalPage = ({ isAdmin }) => {
 
                               {activeAny ? (
                                 <div
-                                  className="absolute h-[3px] -translate-y-1/2 rounded-full bg-sky-300 shadow-[0_0_12px_rgba(125,211,252,0.95),0_0_26px_rgba(125,211,252,0.55)]"
+                                  className="absolute h-[2px] -translate-y-1/2 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.92),0_0_20px_rgba(125,211,252,0.45)]"
                                   style={{ left: `${xJoin}px`, top: `${midY}px`, width: `${xEnd - xJoin}px` }}
                                 />
                               ) : null}
@@ -861,9 +1176,9 @@ const PokalPage = ({ isAdmin }) => {
                           className="group absolute left-0 right-0"
                           style={{ top: `${top}px`, transform: 'translateY(-50%)' }}
                         >
-                          <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(20,29,52,0.96),rgba(11,18,36,0.96))] p-5 shadow-[0_20px_60px_rgba(2,8,23,0.35)] transition group-hover:border-sky-300/20">
-                            <div className="mb-4 flex items-center justify-between gap-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                          <div className="relative rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(20,29,52,0.96),rgba(11,18,36,0.96))] p-4 shadow-[0_16px_42px_rgba(2,8,23,0.33)] transition group-hover:border-sky-300/20">
+                            <div className="mb-3 flex items-center justify-between gap-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                                 {getMatchLabel(roundIndex, matchIndex)}
                               </p>
                               <div className="flex items-center gap-2">
@@ -877,7 +1192,7 @@ const PokalPage = ({ isAdmin }) => {
                                     type="button"
                                     onClick={() => handleResetMatch(match.id)}
                                     disabled={resettingMatchId === match.id}
-                                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white transition hover:border-sky-300/60 hover:text-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white transition hover:border-sky-300/60 hover:text-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
                                   >
                                     {resettingMatchId === match.id ? 'Reset...' : 'Reset'}
                                   </button>
@@ -885,9 +1200,9 @@ const PokalPage = ({ isAdmin }) => {
                               </div>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                               <div
-                                className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                                className={`rounded-xl border px-3 py-2.5 text-[13px] font-semibold ${
                                   winner && winner === match.home
                                     ? 'border-sky-300/60 bg-sky-400/20 text-sky-50 shadow-[0_0_0_1px_rgba(125,211,252,0.12)]'
                                     : 'border-white/5 bg-white/[0.06] text-white'
@@ -903,15 +1218,15 @@ const PokalPage = ({ isAdmin }) => {
                                     })}
                                   </span>
                                   {savedHomeScore !== null ? (
-                                    <span className="text-sm font-semibold text-inherit">{savedHomeScore}</span>
+                                    <span className="text-[13px] font-semibold text-inherit">{savedHomeScore}</span>
                                   ) : null}
                                 </div>
                               </div>
-                              <div className="text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                              <div className="text-center text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-500">
                                 vs
                               </div>
                               <div
-                                className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                                className={`rounded-xl border px-3 py-2.5 text-[13px] font-semibold ${
                                   winner && winner === match.away
                                     ? 'border-sky-300/60 bg-sky-400/20 text-sky-50 shadow-[0_0_0_1px_rgba(125,211,252,0.12)]'
                                     : 'border-white/5 bg-white/[0.06] text-white'
@@ -927,7 +1242,7 @@ const PokalPage = ({ isAdmin }) => {
                                     })}
                                   </span>
                                   {savedAwayScore !== null ? (
-                                    <span className="text-sm font-semibold text-inherit">{savedAwayScore}</span>
+                                    <span className="text-[13px] font-semibold text-inherit">{savedAwayScore}</span>
                                   ) : null}
                                 </div>
                               </div>
@@ -1120,7 +1435,8 @@ const PokalPage = ({ isAdmin }) => {
                 </div>
               ))}
             </div>
-          </div>
+            </div>
+          </>
         )}
       </Card>
     </div>
