@@ -4,7 +4,15 @@ import { updateProfile } from 'firebase/auth'
 import { auth } from '../firebase'
 import { GradientBadge } from '../app/ui'
 
-const SettingsPage = ({ user, onProfileSaved, theme, onThemeChange }) => {
+const SettingsPage = ({
+  user,
+  onProfileSaved,
+  theme,
+  onThemeChange,
+  canUseMemberView = false,
+  memberViewEnabled = false,
+  onMemberViewChange,
+}) => {
   const [displayName, setDisplayName] = useState(user?.displayName || '')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -65,6 +73,35 @@ const SettingsPage = ({ user, onProfileSaved, theme, onThemeChange }) => {
               ))}
             </div>
           </div>
+          {canUseMemberView ? (
+            <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-100">Mitgliedersicht</p>
+                  <p className="mt-1 text-xs text-slate-300/75">
+                    Blendet Admin-Bearbeitung aus und zeigt die normale Spieleransicht.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={memberViewEnabled}
+                  onClick={() => onMemberViewChange?.(!memberViewEnabled)}
+                  className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
+                    memberViewEnabled
+                      ? 'border-emerald-300/70 bg-emerald-400/80'
+                      : 'border-white/15 bg-slate-800'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${
+                      memberViewEnabled ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          ) : null}
           <label className="flex flex-col gap-2 text-sm text-slate-200/80">
             Anzeigename
             <input

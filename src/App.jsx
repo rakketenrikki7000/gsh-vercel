@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp } from 'firebase/firestore'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { auth, db } from './firebase'
-import { ADMIN_EMAILS, PRIVATE_NAV_ITEMS, PUBLIC_NAV_ITEMS, TABLE_STORAGE_KEY, computeStandings, normalizeName } from './app/shared'
+import { PRIVATE_NAV_ITEMS, PUBLIC_NAV_ITEMS, TABLE_STORAGE_KEY, computeStandings, getAdminPermissions, normalizeName } from './app/shared'
 import { Footer, PrivateRoute, TopNav } from './app/ui'
 import HomePage from './pages/HomePage'
 import { NewsDetailPage, NewsPage } from './pages/NewsPage'
@@ -29,6 +29,13 @@ const AppShell = () => {
       return 'dark'
     }
   })
+  const [memberViewEnabled, setMemberViewEnabled] = useState(() => {
+    try {
+      return window?.localStorage?.getItem('gsh-member-view') === '1'
+    } catch {
+      return false
+    }
+  })
   const [loadingTables, setLoadingTables] = useState(true)
   const [tablesError, setTablesError] = useState('')
   const [selectedTableId, setSelectedTableId] = useState('')
@@ -48,11 +55,20 @@ const AppShell = () => {
     () => tables.find((table) => table.id === selectedTableId) || null,
     [tables, selectedTableId],
   )
-  const isAdmin = useMemo(() => {
-    const email = (user?.email || '').toLowerCase()
-    if (!email) return false
-    return ADMIN_EMAILS.includes(email)
-  }, [user])
+  const adminPermissions = useMemo(() => getAdminPermissions(user?.email), [user])
+  const visibleAdminPermissions = useMemo(
+    () =>
+      memberViewEnabled
+        ? {
+            isSuperAdmin: false,
+            canEditSocialMedia: false,
+            canEditCompetition: false,
+            canEditSchedule: false,
+            canEditAnything: false,
+          }
+        : adminPermissions,
+    [adminPermissions, memberViewEnabled],
+  )
   const userAvatar = useMemo(() => {
     const name = normalizeName(user?.displayName)
     if (!name) return null
@@ -128,6 +144,20 @@ const AppShell = () => {
       console.warn('Konnte Theme nicht speichern.', err)
     }
   }, [theme])
+
+  useEffect(() => {
+    try {
+      window?.localStorage?.setItem('gsh-member-view', memberViewEnabled ? '1' : '0')
+    } catch (err) {
+      console.warn('Konnte Mitgliederansicht nicht speichern.', err)
+    }
+  }, [memberViewEnabled])
+
+  useEffect(() => {
+    if (!adminPermissions.canEditAnything && memberViewEnabled) {
+      setMemberViewEnabled(false)
+    }
+  }, [adminPermissions.canEditAnything, memberViewEnabled])
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -221,7 +251,7 @@ const AppShell = () => {
         <Routes>
           <Route path="/" element={<HomePage user={user} />} />
           <Route path="/tabelle-oeffentlich" element={<PublicTablePage matches={matches} activeTable={activeTable} />} />
-          <Route path="/galerie" element={<GalleryPage isAdmin={isAdmin} />} />
+          <Route path="/galerie" element={<GalleryPage isAdmin={visibleAdminPermissions.canEditSocialMedia} />} />
           <Route
             path="/tabelle"
             element={
@@ -233,7 +263,7 @@ const AppShell = () => {
                   handleSubmit={handleSubmit}
                   saving={saving}
                   error={error}
-                  isAdmin={isAdmin}
+                  isAdmin={visibleAdminPermissions.canEditCompetition}
                   tables={tables}
                   selectedTableId={selectedTableId}
                   onSelectTable={setSelectedTableId}
@@ -249,7 +279,7 @@ const AppShell = () => {
             path="/mannschaft"
             element={
               <PrivateRoute user={user}>
-                <TeamPage isAdmin={isAdmin} />
+                <TeamPage isAdmin={visibleAdminPermissions.canEditSocialMedia} />
               </PrivateRoute>
             }
           />
@@ -257,13 +287,13 @@ const AppShell = () => {
             path="/spielplan"
             element={
               <PrivateRoute user={user}>
-                <SchedulePage user={user} isAdmin={isAdmin} playerProfiles={playerProfiles} />
+                <SchedulePage user={user} isAdmin={visibleAdminPermissions.canEditSchedule} playerProfiles={playerProfiles} />
               </PrivateRoute>
             }
           />
-          <Route path="/news" element={<NewsPage isAdmin={isAdmin} />} />
-          <Route path="/news/:newsId" element={<NewsDetailPage isAdmin={isAdmin} />} />
-          <Route path="/pokal" element={<PokalPage isAdmin={isAdmin} />} />
+          <Route path="/news" element={<NewsPage isAdmin={visibleAdminPermissions.canEditSocialMedia} />} />
+          <Route path="/news/:newsId" element={<NewsDetailPage isAdmin={visibleAdminPermissions.canEditSocialMedia} />} />
+          <Route path="/pokal" element={<PokalPage isAdmin={visibleAdminPermissions.canEditCompetition} />} />
           <Route path="/anfahrt" element={<AnfahrtPage />} />
           <Route path="/ueber-uns" element={<AboutPage />} />
           <Route
@@ -275,6 +305,9 @@ const AppShell = () => {
                   onProfileSaved={() => setUser(auth.currentUser)}
                   theme={theme}
                   onThemeChange={setTheme}
+                  canUseMemberView={adminPermissions.canEditAnything}
+                  memberViewEnabled={memberViewEnabled}
+                  onMemberViewChange={setMemberViewEnabled}
                 />
               </PrivateRoute>
             }

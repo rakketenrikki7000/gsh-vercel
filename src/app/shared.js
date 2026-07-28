@@ -64,10 +64,35 @@ const PRIVATE_NAV_ITEMS = [
   { to: '/ueber-uns', label: 'Über uns' },
 ]
 
-const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || '')
+const parseAdminEmails = (value) =>
+  (value || '')
   .split(',')
   .map((v) => v.trim().toLowerCase())
   .filter(Boolean)
+
+const SUPER_ADMIN_EMAILS = parseAdminEmails(import.meta.env.VITE_SUPER_ADMIN)
+const SOCIALMEDIA_ADMIN_EMAILS = parseAdminEmails(import.meta.env.VITE_SOCIALMEDIA_ADMIN)
+const COMPETITION_ADMIN_EMAILS = parseAdminEmails(import.meta.env.VITE_COMPETITION_ADMIN)
+const SCHEDULE_ADMIN_EMAILS = parseAdminEmails(import.meta.env.VITE_SCHEDULE_ADMIN)
+
+const getAdminPermissions = (emailValue) => {
+  const email = (emailValue || '').trim().toLowerCase()
+  const isSuperAdmin = Boolean(email) && SUPER_ADMIN_EMAILS.includes(email)
+  const canEditSocialMedia =
+    isSuperAdmin || (Boolean(email) && SOCIALMEDIA_ADMIN_EMAILS.includes(email))
+  const canEditCompetition =
+    isSuperAdmin || (Boolean(email) && COMPETITION_ADMIN_EMAILS.includes(email))
+  const canEditSchedule =
+    isSuperAdmin || (Boolean(email) && SCHEDULE_ADMIN_EMAILS.includes(email))
+
+  return {
+    isSuperAdmin,
+    canEditSocialMedia,
+    canEditCompetition,
+    canEditSchedule,
+    canEditAnything: isSuperAdmin || canEditSocialMedia || canEditCompetition || canEditSchedule,
+  }
+}
 
 const I18N_DE = {
   nav_table: 'Tabelle',
@@ -233,16 +258,20 @@ const computeStandings = (matches, mode = 'all') => {
 
 
 export {
-  ADMIN_EMAILS,
+  COMPETITION_ADMIN_EMAILS,
   POSITION_GROUPS,
   PRIVATE_NAV_ITEMS,
   PUBLIC_NAV_ITEMS,
+  SCHEDULE_ADMIN_EMAILS,
+  SOCIALMEDIA_ADMIN_EMAILS,
   SPONSOR_LOOP,
   STADIUM_OPTIONS,
+  SUPER_ADMIN_EMAILS,
   TABLE_STORAGE_KEY,
   TEAM_OPTIONS,
   computeStandings,
   formatDate,
+  getAdminPermissions,
   normalizeName,
   useI18n,
 }
