@@ -33,8 +33,8 @@ const POSITION_GROUPS = [
 ]
 
 const SPONSOR_LOGOS = [
-  { src: '/Dienstleistungen_Stefan_Siffrin.jpg', alt: 'Dienstleistungen Stefan Siffrin', href: 'https://be.linkedin.com/in/stefan-siffrin-552864158' },
-  { src: '/jkmotor-raeder.jpg', alt: 'JK Motor Raeder', href: 'https://www.jkmotorraeder.be/' },
+  { src: '/Dienstleistungen_Stefan_Siffrin.jpg', alt: 'Dienstleistungen Stefan Siffrin'},
+  { src: '/jkmotor-raeder.jpg', alt: 'JK Motor Raeder' },
   { src: '/Elektro_Bemelmans.png', alt: 'Elektro Bemelmans', href: 'https://elektro-bemelmans.be/' },
   { src: '/Metzgerei_Vincent.jpg', alt: 'Metzgerei Vincent', href: 'https://www.facebook.com/people/Metzgerei-boucherie-Dorthu-Steyns/100054569703802/' },
   { src: '/Mauel.png', alt: 'Mauel', href: 'https://www.mauel.be/' },
